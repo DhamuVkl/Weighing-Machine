@@ -4,26 +4,25 @@
 #include <BigNumbers.h>
 
 // Data pin and clock pin
-byte pinData = 3;
-byte pinClk = 2;
-byte pinTare = 7; // Tare pin
+const byte pinData = 3;
+const byte pinClk = 2;
+const byte pinTare = 7; // Tare pin
 
-HX711 loadcell;
 HX711 scale;
 
 // Parameter to calibrate weight and sensor, different for different sensors
-float calibration_factor = 107150; // Put some value and adjust it through serial monitor
+const long calibration_factor = 106500; // Put some value and adjust it through serial monitor
 
 // LCD connections
 LiquidCrystal lcd(8, 9, 10, 11, 12, 13); // Change these pins according to your LCD wiring
 BigNumbers bigNum(&lcd);                 // construct BigNumbers object, passing to it the name of our LCD object
 
 // Simple Moving Average Filter variables
-const int numReadings = 2;
-float readings[numReadings]; // Array to store readings
+const int numReadings = 7;
+int readings[numReadings]; // Array to store readings
 int index = 0;
-float total = 0;
-float average = 0;
+int total = 0;
+int average = 0;
 
 void setup()
 {
@@ -34,7 +33,7 @@ void setup()
     scale.begin(pinData, pinClk);
 
     // Apply the calibration
-    scale.set_scale();
+    scale.set_scale(calibration_factor);
 
     // Initializing the tare
     scale.tare(); // Reset the scale to 0
@@ -45,6 +44,12 @@ void setup()
 
     // Set tare pin mode to input with pull-up resistor
     pinMode(pinTare, INPUT_PULLUP);
+
+    // Initialize the readings array to 0
+    for (int i = 0; i < numReadings; ++i)
+    {
+        readings[i] = 0;
+    }
 }
 
 void loop()
@@ -59,7 +64,7 @@ void loop()
 
     scale.set_scale(calibration_factor); // Adjust to this calibration factor
 
-    float weight = scale.get_units();
+    int weight = scale.get_units() * 1000; // Convert to grams
 
     // Apply the simple moving average filter
     total = total - readings[index];   // Subtract the last reading
@@ -72,12 +77,10 @@ void loop()
 
     Serial.println(average); // Print the filtered weight to Serial monitor
 
-    int weightInt = average * 1000; // Convert to grams
-
     // Print to LCD
-    bigNum.displayLargeInt(weightInt, 0, 5, false);
+    bigNum.displayLargeInt(average, 0, 5, false);
 
-    if (weight < float(0))
+    if (weight < 0)
     {
         lcd.setCursor(0, 0);
         lcd.print("__");
@@ -85,5 +88,5 @@ void loop()
         lcd.print("--");
     }
 
-    delay(250); // Delay for stability, adjust as needed
+    delay(10);
 }
